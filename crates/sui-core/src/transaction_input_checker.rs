@@ -24,13 +24,15 @@ async fn get_gas_status(
     transaction: &TransactionData,
 ) -> SuiResult<SuiGasStatus<'static>> {
     let tx_kind = &transaction.kind;
-    let gas_object_ref = transaction.gas_payment_object_ref();
+    let gas_object_ref = transaction.gas_payment_object_ref().get(0).unwrap();
     let gas_object_refs = match tx_kind {
         TransactionKind::Single(SingleTransactionKind::PaySui(p)) => p.coins.clone(),
         TransactionKind::Single(SingleTransactionKind::PayAllSui(p)) => p.coins.clone(),
         _ => vec![],
     };
-    let extra_gas_object_refs = gas_object_refs.into_iter().skip(1).collect();
+    let mut extra_gas_object_refs: Vec<ObjectRef> = gas_object_refs.into_iter().skip(1).collect();
+    let mut remaining_gas_object_refs: Vec<ObjectRef> = transaction.gas_payment_object_ref()[1..].to_vec();
+    extra_gas_object_refs.append(&mut remaining_gas_object_refs);
 
     check_gas(
         store,
@@ -69,7 +71,8 @@ pub(crate) async fn check_dev_inspect_input(
     gas_object: Object,
 ) -> Result<(ObjectRef, InputObjects), anyhow::Error> {
     let gas_object_ref = gas_object.compute_object_reference();
-    TransactionData::validity_check_impl(kind, &gas_object_ref)?;
+    // TODO: review this whole story of dev inspect and dry run
+    TransactionData::validity_check_impl(kind, &[gas_object_ref])?;
     for k in kind.single_transactions() {
         match k {
             SingleTransactionKind::TransferObject(_)
@@ -134,8 +137,8 @@ pub async fn check_certificate_input(
 }
 
 /// Checking gas budget by fetching the gas object only from the store,
-/// and check whether the balance and budget satisfies the miminum requirement.
-/// Returns the gas object (to be able to reuse it latter) and a gas status
+/// and check whether the balance and budget satisfies the minimum requirement.
+/// Returns the gas object (to be able to reuse it later) and a gas status
 /// that will be used in the entire lifecycle of the transaction execution.
 #[instrument(level = "trace", skip_all)]
 async fn check_gas(

@@ -137,7 +137,8 @@ pub struct TransferSui {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct PayAllSui {
     /// The coins to be used for payment.
-    pub coins: Vec<ObjectRef>,
+    pub
+    coins: Vec<ObjectRef>,
     /// The address that will receive payment
     pub recipient: SuiAddress,
 }
@@ -665,7 +666,7 @@ impl Display for TransactionKind {
 pub struct TransactionData {
     pub kind: TransactionKind,
     sender: SuiAddress,
-    gas_payment: ObjectRef,
+    gas_payment: Vec<ObjectRef>,
     pub gas_price: u64,
     pub gas_budget: u64,
 }
@@ -675,6 +676,21 @@ impl TransactionData {
         kind: TransactionKind,
         sender: SuiAddress,
         gas_payment: ObjectRef,
+        gas_budget: u64,
+    ) -> Self {
+        TransactionData {
+            kind,
+            sender,
+            gas_price: DUMMY_GAS_PRICE,
+            gas_payment: vec![gas_payment],
+            gas_budget,
+        }
+    }
+
+    pub fn new_with_coins_dummy_gas_price(
+        kind: TransactionKind,
+        sender: SuiAddress,
+        gas_payment: Vec<ObjectRef>,
         gas_budget: u64,
     ) -> Self {
         TransactionData {
@@ -697,7 +713,7 @@ impl TransactionData {
             kind,
             sender,
             gas_price,
-            gas_payment,
+            gas_payment: vec![gas_payment],
             gas_budget,
         }
     }
@@ -919,15 +935,15 @@ impl TransactionData {
         Self::new(kind, sender, gas_payment, gas_budget, gas_price)
     }
 
-    pub fn gas(&self) -> ObjectRef {
-        self.gas_payment
+    pub fn gas(&self) -> &[ObjectRef] {
+        &self.gas_payment
     }
 
     pub fn signer(&self) -> SuiAddress {
         self.sender
     }
 
-    pub fn gas_payment_object_ref(&self) -> &ObjectRef {
+    pub fn gas_payment_object_ref(&self) -> &[ObjectRef] {
         &self.gas_payment
     }
 
@@ -953,9 +969,8 @@ impl TransactionData {
             .map_err(SuiError::into_transaction_input_error)?;
 
         if !self.kind.is_system_tx() && !self.kind.is_pay_sui_tx() {
-            inputs.push(InputObjectKind::ImmOrOwnedMoveObject(
-                *self.gas_payment_object_ref(),
-            ));
+            let mut coins = self.gas_payment_object_ref().iter().map(|obj_ref| InputObjectKind::ImmOrOwnedMoveObject(*obj_ref)).collect();
+            inputs.append(&mut coins);
         }
         Ok(inputs)
     }
@@ -964,7 +979,12 @@ impl TransactionData {
         Self::validity_check_impl(&self.kind, &self.gas_payment)
     }
 
-    pub fn validity_check_impl(kind: &TransactionKind, gas_payment: &ObjectRef) -> SuiResult {
+    pub fn validity_check_impl(kind: &TransactionKind, gas_payment: &[ObjectRef]) -> SuiResult {
+        // TODO: better error?
+        fp_ensure!(
+            !gas_payment.is_empty(),
+            SuiError::UnexpectedGasPaymentObject
+        );
         fp_ensure!(
             !kind.is_blocked_move_function(),
             SuiError::BlockedMoveFunction
@@ -1009,16 +1029,20 @@ impl TransactionData {
                 SingleTransactionKind::PaySui(p) => {
                     fp_ensure!(!p.coins.is_empty(), SuiError::EmptyInputCoins);
                     fp_ensure!(
+                        //TODO: this has to change with gas smashing
                         // unwrap() is safe because coins are not empty.
-                        p.coins.first().unwrap() == gas_payment,
+                        // p.coins.first().unwrap() == gas_payment,
+                        false,
                         SuiError::UnexpectedGasPaymentObject
                     );
                 }
                 SingleTransactionKind::PayAllSui(pa) => {
                     fp_ensure!(!pa.coins.is_empty(), SuiError::EmptyInputCoins);
                     fp_ensure!(
+                        //TODO: this has to change with gas smashing
                         // unwrap() is safe because coins are not empty.
-                        pa.coins.first().unwrap() == gas_payment,
+                        // pa.coins.first().unwrap() == gas_payment,
+                        false,
                         SuiError::UnexpectedGasPaymentObject
                     );
                 }
@@ -1064,7 +1088,7 @@ impl<S> Envelope<SenderSignedData, S> {
         self.data().intent_message.value.sender
     }
 
-    pub fn gas_payment_object_ref(&self) -> &ObjectRef {
+    pub fn gas_payment_object_ref(&self) -> &[ObjectRef] {
         self.data().intent_message.value.gas_payment_object_ref()
     }
 

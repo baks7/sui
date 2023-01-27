@@ -58,7 +58,7 @@ pub fn execute_transaction_to_effects<
     mut temporary_store: TemporaryStore<S>,
     transaction_kind: TransactionKind,
     transaction_signer: SuiAddress,
-    gas_object_ref: ObjectRef,
+    gas_object_ref: &[ObjectRef],
     transaction_digest: TransactionDigest,
     mut transaction_dependencies: BTreeSet<TransactionDigest>,
     move_vm: &Arc<MoveVM>,
@@ -72,15 +72,44 @@ pub fn execute_transaction_to_effects<
 ) {
     let mut tx_ctx = TxContext::new(&transaction_signer, &transaction_digest, epoch);
 
-    let (gas_cost_summary, execution_result) = execute_transaction::<Mode, _>(
-        &mut temporary_store,
-        transaction_kind,
-        gas_object_ref.0,
-        &mut tx_ctx,
-        move_vm,
-        native_functions,
-        gas_status,
+    // Combine (smash) gas here
+    let gas_coins: Vec<Object> =  // unwrap is safe because we built the object map from the transaction
+        gas_object_ref.iter().map(|obj_ref|
+            temporary_store
+                .objects()
+                .get(&obj_ref.0)
+                .unwrap()
+                .clone()
+        ).collect();
+    let execution_result = check_coins(&gas_coins, Some(GasCoin::type_()))
+        .and_then(|(mut coins, _)| {
+            let mut merged_coin = coins.swap_remove(0);
+            merged_coin.merge_coins(&mut coins);
+            // TODO: register/report/track changes
+            Ok(())
+        }
     );
+
+    // whether we succeeded in merging or not we make the first coin be
+    // the gas input
+    // TODO: what checks do we need here? why was there no check before
+    //       about gas being proper and enough? What did I miss?
+    let gas_ref = gas_object_ref[0];
+    let (gas_cost_summary, execution_result) = match execution_result {
+        Ok(_) => execute_transaction::<Mode, _>(
+            &mut temporary_store,
+            transaction_kind,
+            gas_ref.0,
+            &mut tx_ctx,
+            move_vm,
+            native_functions,
+            gas_status,
+        ),
+        Err(err) => (
+            gas_status.summary(false),
+            Err(err),
+        ),
+    };
 
     let (status, execution_result) = match execution_result {
         Ok(results) => (ExecutionStatus::Success, Ok(results)),
@@ -106,7 +135,7 @@ pub fn execute_transaction_to_effects<
         transaction_dependencies.into_iter().collect(),
         gas_cost_summary,
         status,
-        gas_object_ref,
+        gas_ref,
     );
     (inner, effects, execution_result)
 }
@@ -411,7 +440,7 @@ fn check_coins(
     if coin_objects.is_empty() {
         return Err(ExecutionError::new_with_source(
             ExecutionErrorKind::EmptyInputCoins,
-            "Pay transaction requires a non-empty list of input coins".to_string(),
+            "Transaction requires a non-empty list of input coins".to_string(),
         ));
     }
     let mut coins = Vec::new();
@@ -421,14 +450,14 @@ fn check_coins(
                 if !Coin::is_coin(&move_obj.type_) {
                     return Err(ExecutionError::new_with_source(
                         ExecutionErrorKind::InvalidCoinObject,
-                        "Provided non-Coin<T> object as input to pay/pay_sui/pay_all_sui transaction".to_string(),
+                        "Provided non-Coin<T> object as input to transaction".to_string(),
                     ));
                 }
                 if let Some(typ) = &coin_type {
                     if typ != &move_obj.type_ {
                         return Err(ExecutionError::new_with_source(
                             ExecutionErrorKind::CoinTypeMismatch,
-                            format!("Coin type check failed in pay/pay_sui/pay_all_sui transaction, expected: {:?}, found: {:}", typ, move_obj.type_),
+                            format!("Coin type check failed in transaction, expected: {:?}, found: {:}", typ, move_obj.type_),
                         ));
                     }
                 } else {
@@ -442,7 +471,7 @@ fn check_coins(
             _ => {
                 return Err(ExecutionError::new_with_source(
                     ExecutionErrorKind::InvalidCoinObject,
-                    "Provided non-Coin<T> object as input to pay transaction".to_string(),
+                    "Provided non-Coin<T> object as input to transaction".to_string(),
                 ))
             }
         }

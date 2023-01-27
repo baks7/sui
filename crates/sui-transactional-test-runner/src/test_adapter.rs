@@ -476,7 +476,7 @@ impl<'a> SuiTestAdapter<'a> {
             TemporaryStore::new(self.storage.clone(), input_objects, transaction_digest);
         let transaction_data = transaction.into_inner().into_data().intent_message.value;
         let signer = transaction_data.signer();
-        let gas = transaction_data.gas();
+        let gas = transaction_data.gas().to_vec();
         let (
             inner,
             TransactionEffects {
@@ -498,7 +498,7 @@ impl<'a> SuiTestAdapter<'a> {
             temporary_store,
             transaction_data.kind,
             signer,
-            gas,
+            &gas,
             transaction_digest,
             transaction_dependencies,
             &self.vm,

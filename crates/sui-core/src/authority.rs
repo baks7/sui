@@ -1024,14 +1024,14 @@ impl AuthorityState {
             TemporaryStore::new(self.database.clone(), input_objects, *certificate.digest());
         let transaction_data = certificate.data().intent_message.value.clone();
         let signer = transaction_data.signer();
-        let gas = transaction_data.gas();
+        let gas = transaction_data.gas().to_vec();
         let (inner_temp_store, effects, _execution_error) =
             execution_engine::execute_transaction_to_effects::<execution_mode::Normal, _>(
                 shared_object_refs,
                 temporary_store,
                 transaction_data.kind,
                 signer,
-                gas,
+                &gas,
                 *certificate.digest(),
                 transaction_dependencies,
                 &self.move_vm,
@@ -1074,14 +1074,14 @@ impl AuthorityState {
         let temporary_store =
             TemporaryStore::new(self.database.clone(), input_objects, transaction_digest);
         let signer = transaction.signer();
-        let gas = transaction.gas();
+        let gas = transaction.gas().to_vec();
         let (_inner_temp_store, effects, _execution_error) =
             execution_engine::execute_transaction_to_effects::<execution_mode::Normal, _>(
                 shared_object_refs,
                 temporary_store,
                 transaction.kind,
                 signer,
-                gas,
+                &gas,
                 transaction_digest,
                 transaction_dependencies,
                 &self.move_vm,
@@ -1145,7 +1145,8 @@ impl AuthorityState {
                 temporary_store,
                 transaction_kind,
                 sender,
-                gas_object_ref,
+                // TODO: review this logic with above TransactionData creation
+                &[gas_object_ref],
                 transaction_digest,
                 transaction_dependencies,
                 &self.move_vm,

@@ -180,20 +180,22 @@ impl Serialize for Genesis {
         use serde::ser::Error;
 
         #[derive(Serialize)]
-        struct RawGeneis<'a> {
+        struct RawGenesis<'a> {
             checkpoint: &'a CertifiedCheckpointSummary,
             checkpoint_contents: &'a CheckpointContents,
             transaction: &'a CertifiedTransaction,
             effects: &'a TransactionEffects,
+            events: &'a TransactionEvents,
             objects: &'a [Object],
             validator_set: &'a [ValidatorInfo],
         }
 
-        let raw_genesis = RawGeneis {
+        let raw_genesis = RawGenesis {
             checkpoint: &self.checkpoint,
             checkpoint_contents: &self.checkpoint_contents,
             transaction: &self.transaction,
             effects: &self.effects,
+            events: &self.events,
             objects: &self.objects,
             validator_set: &self.validator_set,
         };

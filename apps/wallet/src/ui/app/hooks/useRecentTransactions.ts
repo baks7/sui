@@ -97,12 +97,7 @@ export function useRecentTransactions() {
             );
 
             const txResults = txEffs.map((txEff) => {
-                const digest = transactions.filter(
-                    (transactionId) =>
-                        transactionId ===
-                        getTransactionDigest(txEff.certificate)
-                )[0];
-
+                const digest = getTransactionDigest(txEff.certificate);
                 const txns = getTransactions(txEff.certificate);
 
                 // TODO handle batch transactions
@@ -141,6 +136,17 @@ export function useRecentTransactions() {
                     (acc, { amount }) => acc + amount,
                     0
                 );
+                const payOrReceive = txEff.effects.events?.find(
+                    (anEvent) =>
+                        'coinBalanceChange' in anEvent &&
+                        ['Pay', 'Receive'].includes(
+                            anEvent.coinBalanceChange.changeType
+                        )
+                );
+                let coinType;
+                if (payOrReceive && 'coinBalanceChange' in payOrReceive) {
+                    coinType = payOrReceive.coinBalanceChange.coinType;
+                }
 
                 return {
                     txId: digest,
@@ -152,6 +158,8 @@ export function useRecentTransactions() {
                     isSender: sender === address,
                     error: getExecutionStatusError(txEff),
                     timestampMs: txEff.timestamp_ms,
+                    coinType,
+                    coinSymbol: coinType && Coin.getCoinSymbol(coinType),
                     ...(recipient && { to: recipient }),
                     ...((amount || amountTransfers) && {
                         amount: Math.abs(amount || amountTransfers),
@@ -185,12 +193,6 @@ export function useRecentTransactions() {
                         : null;
 
                 const { details } = txnObjects || {};
-
-                const coinType =
-                    txnObjects &&
-                    is(details, SuiObject) &&
-                    Coin.getCoinTypeArg(txnObjects);
-
                 const fields =
                     txnObjects && is(details, SuiObject)
                         ? getObjectFields(txnObjects)
@@ -198,8 +200,6 @@ export function useRecentTransactions() {
 
                 return {
                     ...itm,
-                    coinType,
-                    coinSymbol: coinType && Coin.getCoinSymbol(coinType),
                     ...(fields &&
                         fields.url && {
                             description:

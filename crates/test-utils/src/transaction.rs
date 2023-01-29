@@ -120,7 +120,6 @@ pub async fn publish_package_with_wallet(
 
     assert!(resp.confirmed_local_execution);
     resp.effects
-        .unwrap()
         .created
         .iter()
         .find(|obj_ref| obj_ref.owner == Owner::Immutable)
@@ -177,7 +176,7 @@ pub async fn submit_move_transaction(
         .await
         .unwrap();
     assert!(resp.confirmed_local_execution);
-    (resp.tx_cert.unwrap(), resp.effects.unwrap())
+    (resp.tx_cert, resp.effects)
 }
 
 /// A helper function to publish the basics package and make counter objects
@@ -402,7 +401,7 @@ pub async fn delete_devnet_nft(
         .unwrap();
 
     assert!(resp.confirmed_local_execution);
-    (resp.tx_cert.unwrap(), resp.effects.unwrap())
+    (resp.tx_cert, resp.effects)
 }
 
 /// Submit a certificate containing only owned-objects to all authorities.

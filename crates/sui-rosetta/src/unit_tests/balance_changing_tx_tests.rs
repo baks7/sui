@@ -15,7 +15,7 @@ use sui_keys::keystore::AccountKeystore;
 use sui_keys::keystore::Keystore;
 use sui_sdk::rpc_types::{
     OwnedObjectRef, SuiData, SuiEvent, SuiExecutionStatus, SuiTransactionEffects,
-    SuiTransactionResponse,
+    SuiTransactionEvents, SuiTransactionResponse,
 };
 use sui_sdk::SuiClient;
 use sui_sdk::TransactionExecutionResult;
@@ -106,9 +106,10 @@ async fn test_publish_and_move_call() {
     let response = test_transaction(&client, keystore, vec![], sender, tx, None).await;
 
     // Test move call (reuse published module from above test)
-    let effect = response.effects.clone().unwrap();
-    let package = effect
+    let effect = response.effects.clone();
+    let package = response
         .events
+        .data
         .iter()
         .find_map(|event| {
             if let SuiEvent::Publish { package_id, .. } = event {
@@ -120,7 +121,7 @@ async fn test_publish_and_move_call() {
         .unwrap();
 
     // TODO: Improve tx response to make it easier to find objects.
-    let treasury = find_module_object(&effect, "managed", "TreasuryCap");
+    let treasury = find_module_object(&effect, &response.events, "managed", "TreasuryCap");
     let treasury = treasury.clone().reference.to_object_ref();
     let recipient = *network.accounts.choose(&mut OsRng::default()).unwrap();
     let tx = SingleTransactionKind::Call(MoveCall {
@@ -287,11 +288,12 @@ async fn test_pay_all_sui() {
 
 fn find_module_object(
     effects: &SuiTransactionEffects,
+    events: &SuiTransactionEvents,
     module: &str,
     object_type_name: &str,
 ) -> OwnedObjectRef {
-    let mut results: Vec<_> = effects
-        .events
+    let mut results: Vec<_> = events
+        .data
         .iter()
         .filter_map(|event| {
             if let SuiEvent::NewObject {
@@ -376,7 +378,7 @@ async fn test_transaction(
         .map_err(|e| anyhow!("TX execution failed for {data:#?}, error : {e}"))
         .unwrap();
 
-    let effects = response.effects.clone().unwrap();
+    let effects = response.effects.clone();
 
     assert_eq!(
         SuiExecutionStatus::Success,
@@ -386,10 +388,10 @@ async fn test_transaction(
     );
 
     let tx_response = SuiTransactionResponse {
-        certificate: response.tx_cert.clone().unwrap(),
+        certificate: response.tx_cert.clone(),
         effects: effects.clone(),
+        events: response.events.clone(),
         timestamp_ms: None,
-        parsed_data: None,
     };
 
     let ops = tx_response.try_into().unwrap();

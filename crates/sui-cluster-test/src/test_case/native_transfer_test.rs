@@ -7,7 +7,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use jsonrpsee::rpc_params;
-use sui_json_rpc_types::{SuiCertifiedTransaction, SuiTransactionEffects};
+use sui_json_rpc_types::{SuiCertifiedTransaction, SuiTransactionEvents};
 use sui_types::{
     base_types::{ObjectID, SuiAddress},
     crypto::{get_key_pair, AccountKeyPair},
@@ -47,12 +47,12 @@ impl TestCaseImpl for NativeTransferTest {
         let data = ctx
             .build_transaction_remotely("sui_transferObject", params)
             .await?;
-        let (tx_cert, effects) = ctx.sign_and_execute(data, "coin transfer").await;
+        let (tx_cert, _, events) = ctx.sign_and_execute(data, "coin transfer").await;
 
         Self::examine_response(
             ctx,
             tx_cert,
-            effects,
+            events,
             signer,
             recipient_addr,
             obj_to_transfer,
@@ -66,12 +66,12 @@ impl TestCaseImpl for NativeTransferTest {
         let data = ctx
             .build_transaction_remotely("sui_transferSui", params)
             .await?;
-        let (tx_cert, effects) = ctx.sign_and_execute(data, "coin transfer").await;
+        let (tx_cert, _, events) = ctx.sign_and_execute(data, "coin transfer").await;
 
         Self::examine_response(
             ctx,
             tx_cert,
-            effects,
+            events,
             signer,
             recipient_addr,
             obj_to_transfer,
@@ -86,13 +86,13 @@ impl NativeTransferTest {
     async fn examine_response(
         ctx: &TestContext,
         tx_cert: SuiCertifiedTransaction,
-        mut effects: SuiTransactionEffects,
+        mut events: SuiTransactionEvents,
         signer: SuiAddress,
         recipient: SuiAddress,
         obj_to_transfer_id: ObjectID,
         method: &str,
     ) {
-        let events = &mut effects.events;
+        let events = &mut events.data;
         assert_eq!(
             events.len(),
             3,

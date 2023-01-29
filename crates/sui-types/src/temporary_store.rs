@@ -15,6 +15,8 @@ use tracing::trace;
 
 use crate::coin::Coin;
 use crate::event::BalanceChangeType;
+use crate::message_envelope::Message;
+use crate::messages::TransactionEvents;
 use crate::storage::SingleTxContext;
 use crate::{
     base_types::{
@@ -128,7 +130,7 @@ impl<S> TemporaryStore<S> {
     }
 
     /// Break up the structure and return its internal stores (objects, active_inputs, written, deleted)
-    pub fn into_inner(self) -> (InnerTemporaryStore, Vec<Event>) {
+    pub fn into_inner(self) -> (InnerTemporaryStore, TransactionEvents) {
         #[cfg(debug_assertions)]
         {
             self.check_invariants();
@@ -237,7 +239,8 @@ impl<S> TemporaryStore<S> {
             written,
             deleted,
         };
-        (store, events)
+
+        (store, TransactionEvents { data: events })
     }
 
     fn create_written_events(
@@ -497,7 +500,7 @@ impl<S> TemporaryStore<S> {
         gas_cost_summary: GasCostSummary,
         status: ExecutionStatus,
         gas_object_ref: ObjectRef,
-    ) -> (InnerTemporaryStore, TransactionEffects) {
+    ) -> (InnerTemporaryStore, TransactionEffects, TransactionEvents) {
         let mut modified_at_versions = vec![];
 
         // Remember the versions objects were updated from in case of rollback.
@@ -558,10 +561,10 @@ impl<S> TemporaryStore<S> {
             deleted,
             wrapped,
             gas_object: updated_gas_object_info,
-            events,
+            events_digest: events.digest(),
             dependencies: transaction_dependencies,
         };
-        (inner, effects)
+        (inner, effects, events)
     }
 
     /// An internal check of the invariants (will only fire in debug)

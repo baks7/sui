@@ -131,6 +131,12 @@ impl AuthorityStore {
                 .effects
                 .insert(&genesis.effects().digest(), genesis.effects())
                 .unwrap();
+
+            store
+                .perpetual_tables
+                .events
+                .insert(&genesis.events().digest(), genesis.events())
+                .unwrap();
         }
 
         Ok(store)
@@ -148,6 +154,18 @@ impl AuthorityStore {
             .perpetual_tables
             .executed_effects
             .get(transaction_digest)?)
+    }
+
+    pub(crate) fn get_events(
+        &self,
+        event_digest: &TransactionEventsDigest,
+    ) -> SuiResult<TransactionEvents> {
+        self.perpetual_tables
+            .events
+            .get(event_digest)?
+            .ok_or(SuiError::TransactionEventsNotFound {
+                digest: *event_digest,
+            })
     }
 
     /// Returns the TransactionEffects if we have an effects structure for this transaction digest

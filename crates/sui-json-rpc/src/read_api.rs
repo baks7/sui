@@ -19,7 +19,7 @@ use sui_json_rpc_types::{
     DevInspectResults, DynamicFieldPage, GetObjectDataResponse, GetPastObjectDataResponse,
     MoveFunctionArgType, ObjectValueKind, Page, SuiMoveNormalizedFunction, SuiMoveNormalizedModule,
     SuiMoveNormalizedStruct, SuiObjectInfo, SuiTransactionAuthSignersResponse,
-    SuiTransactionEffects, SuiTransactionResponse, TransactionsPage,
+    SuiTransactionEffects, SuiTransactionEvents, SuiTransactionResponse, TransactionsPage,
 };
 use sui_open_rpc::Module;
 use sui_types::base_types::SequenceNumber;
@@ -186,11 +186,15 @@ impl RpcReadApiServer for ReadApi {
             .get_transaction(digest)
             .await
             .tap_err(|err| debug!(tx_digest=?digest, "Failed to get transaction: {:?}", err))?;
+        let events = self
+            .state
+            .get_transaction_events(effects.events_digest)
+            .await?;
         Ok(SuiTransactionResponse {
             certificate: cert.try_into()?,
-            effects: SuiTransactionEffects::try_from(effects, self.state.module_cache.as_ref())?,
+            effects: effects.into(),
+            events: SuiTransactionEvents::try_from(events, self.state.module_cache.as_ref())?,
             timestamp_ms: self.state.get_timestamp_ms(&digest).await?,
-            parsed_data: None,
         })
     }
 

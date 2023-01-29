@@ -1202,7 +1202,11 @@ pub type SignedTransaction = Envelope<SenderSignedData, AuthoritySignInfo>;
 pub type VerifiedSignedTransaction = VerifiedEnvelope<SenderSignedData, AuthoritySignInfo>;
 
 pub type CertifiedTransaction = Envelope<SenderSignedData, AuthorityStrongQuorumSignInfo>;
-pub type TxCertAndSignedEffects = (CertifiedTransaction, SignedTransactionEffects);
+pub type TxCertAndSignedEffects = (
+    CertifiedTransaction,
+    SignedTransactionEffects,
+    TransactionEvents,
+);
 
 pub type VerifiedCertificate = VerifiedEnvelope<SenderSignedData, AuthorityStrongQuorumSignInfo>;
 pub type TrustedCertificate = TrustedEnvelope<SenderSignedData, AuthorityStrongQuorumSignInfo>;
@@ -1967,8 +1971,8 @@ pub struct TransactionEffects {
     /// The updated gas object reference. Have a dedicated field for convenient access.
     /// It's also included in mutated.
     pub gas_object: (ObjectRef, Owner),
-    /// The events emitted during execution. Note that only successful transactions emit events
-    pub events: Vec<Event>,
+    /// The events emitted during execution.
+    pub events_digest: TransactionEventsDigest,
     /// The set of transaction digests this transaction depends on.
     pub dependencies: Vec<TransactionDigest>,
 }
@@ -2007,11 +2011,40 @@ impl TransactionEffects {
     }
 }
 
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
+pub struct TransactionEvents {
+    pub data: Vec<Event>,
+}
+
 impl Message for TransactionEffectsDigest {
     type DigestType = TransactionEffectsDigest;
 
     fn digest(&self) -> Self::DigestType {
         *self
+    }
+
+    fn verify(&self) -> SuiResult {
+        Ok(())
+    }
+}
+
+impl Message for TransactionEventsDigest {
+    type DigestType = TransactionEventsDigest;
+
+    fn digest(&self) -> Self::DigestType {
+        *self
+    }
+
+    fn verify(&self) -> SuiResult {
+        Ok(())
+    }
+}
+
+impl Message for TransactionEvents {
+    type DigestType = TransactionEventsDigest;
+
+    fn digest(&self) -> Self::DigestType {
+        TransactionEventsDigest(sha3_hash(self))
     }
 
     fn verify(&self) -> SuiResult {
@@ -2102,7 +2135,7 @@ impl Default for TransactionEffects {
                 random_object_ref(),
                 Owner::AddressOwner(SuiAddress::default()),
             ),
-            events: Vec::new(),
+            events_digest: TransactionEventsDigest::random(),
             dependencies: Vec::new(),
         }
     }

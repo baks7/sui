@@ -13,7 +13,8 @@ use std::sync::Arc;
 use sui::client_commands::WalletContext;
 use sui_faucet::CoinInfo;
 use sui_json_rpc_types::{
-    SuiCertifiedTransaction, SuiExecutionStatus, SuiTransactionEffects, TransactionBytes,
+    SuiCertifiedTransaction, SuiExecutionStatus, SuiTransactionEffects, SuiTransactionEvents,
+    TransactionBytes,
 };
 use sui_types::base_types::TransactionDigest;
 use sui_types::messages::ExecuteTransactionRequestType;
@@ -128,7 +129,11 @@ impl TestContext {
         &self,
         txn_data: TransactionData,
         desc: &str,
-    ) -> (SuiCertifiedTransaction, SuiTransactionEffects) {
+    ) -> (
+        SuiCertifiedTransaction,
+        SuiTransactionEffects,
+        SuiTransactionEvents,
+    ) {
         let signature = self.get_context().sign(&txn_data, desc);
         let resp = self
             .get_fullnode_client()
@@ -141,9 +146,9 @@ impl TestContext {
             )
             .await
             .unwrap_or_else(|e| panic!("Failed to execute transaction for {}. {}", desc, e));
-        let (tx_cert, effects) = (resp.tx_cert.unwrap(), resp.effects.unwrap());
+        let (tx_cert, effects) = (resp.tx_cert, resp.effects);
         assert!(matches!(effects.status, SuiExecutionStatus::Success));
-        (tx_cert, effects)
+        (tx_cert, effects, resp.events)
     }
 
     pub async fn setup(options: ClusterTestOpt) -> Result<Self, anyhow::Error> {

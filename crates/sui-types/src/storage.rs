@@ -1,11 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::base_types::{SuiAddress, TransactionDigest, TransactionEffectsDigest, VersionNumber};
+use crate::base_types::{
+    SuiAddress, TransactionDigest, TransactionEffectsDigest, TransactionEventsDigest, VersionNumber,
+};
 use crate::committee::{Committee, EpochId};
 use crate::message_envelope::Message;
 use crate::messages::InputObjectKind::{ImmOrOwnedMoveObject, MovePackage, SharedMoveObject};
-use crate::messages::{SenderSignedData, TransactionEffects, VerifiedCertificate};
+use crate::messages::{
+    SenderSignedData, TransactionEffects, TransactionEvents, VerifiedCertificate,
+};
 use crate::messages_checkpoint::{
     CheckpointContents, CheckpointContentsDigest, CheckpointDigest, CheckpointSequenceNumber,
     VerifiedCheckpoint,
@@ -208,6 +212,11 @@ pub trait ReadStore {
         &self,
         digest: &TransactionEffectsDigest,
     ) -> Result<Option<TransactionEffects>, Self::Error>;
+
+    fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Result<Option<TransactionEvents>, Self::Error>;
 }
 
 impl<T: ReadStore> ReadStore for &T {
@@ -258,6 +267,13 @@ impl<T: ReadStore> ReadStore for &T {
         digest: &TransactionEffectsDigest,
     ) -> Result<Option<TransactionEffects>, Self::Error> {
         ReadStore::get_transaction_effects(*self, digest)
+    }
+
+    fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Result<Option<TransactionEvents>, Self::Error> {
+        ReadStore::get_transaction_events(*self, digest)
     }
 }
 
@@ -319,6 +335,7 @@ pub struct InMemoryStore {
     checkpoint_contents: HashMap<CheckpointContentsDigest, CheckpointContents>,
     transactions: HashMap<TransactionDigest, VerifiedCertificate>,
     effects: HashMap<TransactionEffectsDigest, TransactionEffects>,
+    events: HashMap<TransactionEventsDigest, TransactionEvents>,
 
     epoch_to_committee: Vec<Committee>,
 }
@@ -452,6 +469,13 @@ impl InMemoryStore {
         self.effects.get(digest)
     }
 
+    pub fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Option<&TransactionEvents> {
+        self.events.get(digest)
+    }
+
     pub fn insert_transaction(&mut self, transaction: VerifiedCertificate) {
         self.transactions.insert(*transaction.digest(), transaction);
     }
@@ -540,6 +564,16 @@ impl ReadStore for SharedInMemoryStore {
     ) -> Result<Option<TransactionEffects>, Self::Error> {
         self.inner()
             .get_transaction_effects(digest)
+            .cloned()
+            .pipe(Ok)
+    }
+
+    fn get_transaction_events(
+        &self,
+        digest: &TransactionEventsDigest,
+    ) -> Result<Option<TransactionEvents>, Self::Error> {
+        self.inner()
+            .get_transaction_events(digest)
             .cloned()
             .pipe(Ok)
     }

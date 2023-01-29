@@ -21,12 +21,13 @@ use sui_json_rpc_types::{
     SuiCertifiedTransaction, SuiData, SuiEvent, SuiEventEnvelope, SuiExecutionStatus,
     SuiGasCostSummary, SuiObject, SuiObjectInfo, SuiObjectRead, SuiObjectRef, SuiParsedData,
     SuiPastObjectRead, SuiRawData, SuiRawMoveObject, SuiTransactionAuthSignersResponse,
-    SuiTransactionData, SuiTransactionEffects, SuiTransactionResponse, TransactionBytes,
-    TransactionsPage, TransferObjectParams,
+    SuiTransactionData, SuiTransactionEffects, SuiTransactionEvents, SuiTransactionResponse,
+    TransactionBytes, TransactionsPage, TransferObjectParams,
 };
 use sui_open_rpc::ExamplePairing;
 use sui_types::base_types::{
     ObjectDigest, ObjectID, ObjectType, SequenceNumber, SuiAddress, TransactionDigest,
+    TransactionEventsDigest,
 };
 use sui_types::crypto::AuthorityQuorumSignInfo;
 use sui_types::crypto::{
@@ -498,11 +499,13 @@ impl RpcExampleProvider {
                     owner: Owner::ObjectOwner(signer),
                     reference: SuiObjectRef::from(gas_ref),
                 },
-                events: vec![sui_event],
+                events_digest: TransactionEventsDigest::random(),
                 dependencies: vec![],
             },
+            events: SuiTransactionEvents {
+                data: vec![sui_event],
+            },
             timestamp_ms: None,
-            parsed_data: None,
         };
 
         (data2, signature, recipient, obj_id, result, events)

@@ -13,31 +13,31 @@ use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 
 use crate::error::{Error, SuiRpcResult};
-use rpc_types::{SuiCertifiedTransaction, SuiParsedTransactionResponse, SuiTransactionEffects};
+use rpc_types::{SuiCertifiedTransaction, SuiTransactionEffects};
 use serde_json::Value;
 use sui_adapter::execution_mode::Normal;
 pub use sui_json as json;
 
 use crate::apis::{CoinReadApi, EventApi, GovernanceApi, QuorumDriver, ReadApi};
+use serde::{Deserialize, Serialize};
 pub use sui_json_rpc_types as rpc_types;
-use sui_json_rpc_types::{GetRawObjectDataResponse, SuiObjectInfo};
+use sui_json_rpc_types::{GetRawObjectDataResponse, SuiObjectInfo, SuiTransactionEvents};
 use sui_transaction_builder::{DataReader, TransactionBuilder};
 pub use sui_types as types;
 use sui_types::base_types::{ObjectID, SuiAddress, TransactionDigest};
-
 pub mod apis;
 pub mod error;
 pub const SUI_COIN_TYPE: &str = "0x2::sui::SUI";
 const WAIT_FOR_TX_TIMEOUT_SEC: u64 = 10;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TransactionExecutionResult {
     pub tx_digest: TransactionDigest,
-    pub tx_cert: Option<SuiCertifiedTransaction>,
-    pub effects: Option<SuiTransactionEffects>,
+    pub tx_cert: SuiCertifiedTransaction,
+    pub effects: SuiTransactionEffects,
+    pub events: SuiTransactionEvents,
     pub confirmed_local_execution: bool,
     pub timestamp_ms: Option<u64>,
-    pub parsed_data: Option<SuiParsedTransactionResponse>,
 }
 
 pub struct SuiClientBuilder {

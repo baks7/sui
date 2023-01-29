@@ -60,8 +60,7 @@ impl TestCaseImpl for FullNodeExecuteTransactionTest {
 
         assert!(!response.confirmed_local_execution);
         assert_eq!(txn_digest, response.tx_digest);
-        response.tx_cert.unwrap();
-        let effects = response.effects.unwrap();
+        let effects = response.effects;
         if !matches!(effects.status, SuiExecutionStatus::Success { .. }) {
             panic!(
                 "Failed to execute transfer transaction {:?}: {:?}",
@@ -83,10 +82,9 @@ impl TestCaseImpl for FullNodeExecuteTransactionTest {
                 Some(ExecuteTransactionRequestType::WaitForLocalExecution),
             )
             .await?;
-        response.tx_cert.unwrap();
         assert!(response.confirmed_local_execution);
         assert_eq!(txn_digest, response.tx_digest);
-        let effects = response.effects.unwrap();
+        let effects = response.effects;
         if !matches!(effects.status, SuiExecutionStatus::Success { .. }) {
             panic!(
                 "Failed to execute transfer transaction {:?}: {:?}",

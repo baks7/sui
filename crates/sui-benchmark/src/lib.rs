@@ -321,8 +321,8 @@ impl ValidatorProxy for FullNodeProxy {
                 .await
             {
                 Ok(resp) => {
-                    let tx_cert = resp.tx_cert.unwrap();
-                    let effects = ExecutionEffects::SuiTransactionEffects(resp.effects.unwrap());
+                    let tx_cert = resp.tx_cert;
+                    let effects = ExecutionEffects::SuiTransactionEffects(resp.effects);
                     return Ok((tx_cert, effects));
                 }
                 Err(err) => {

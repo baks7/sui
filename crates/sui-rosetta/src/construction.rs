@@ -127,10 +127,8 @@ pub async fn submit(
         )
         .await?;
 
-    if let Some(effect) = response.effects {
-        if let SuiExecutionStatus::Failure { error } = effect.status {
-            return Err(Error::TransactionExecutionError(error));
-        }
+    if let SuiExecutionStatus::Failure { error } = response.effects.status {
+        return Err(Error::TransactionExecutionError(error));
     }
 
     Ok(TransactionIdentifierResponse {

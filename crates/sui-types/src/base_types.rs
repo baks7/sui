@@ -315,6 +315,24 @@ impl TransactionEffectsDigest {
     }
 }
 
+#[serde_as]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Hash, Serialize, Deserialize, JsonSchema)]
+pub struct TransactionEventsDigest(
+    #[schemars(with = "Base64")]
+    #[serde_as(as = "Readable<Base64, Bytes>")]
+    pub [u8; TRANSACTION_DIGEST_LENGTH],
+);
+
+impl TransactionEventsDigest {
+    pub const ZERO: Self = TransactionEventsDigest([0u8; TRANSACTION_DIGEST_LENGTH]);
+
+    // for testing
+    pub fn random() -> Self {
+        let random_bytes = rand::thread_rng().gen::<[u8; TRANSACTION_DIGEST_LENGTH]>();
+        Self(random_bytes)
+    }
+}
+
 #[derive(
     Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Hash, Serialize, Deserialize, JsonSchema, Debug,
 )]
@@ -645,6 +663,14 @@ impl std::fmt::Debug for TransactionDigest {
 
 impl std::fmt::Debug for TransactionEffectsDigest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        let s = Base64::encode(self.0);
+        write!(f, "{}", s)?;
+        Ok(())
+    }
+}
+
+impl fmt::Debug for TransactionEventsDigest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let s = Base64::encode(self.0);
         write!(f, "{}", s)?;
         Ok(())

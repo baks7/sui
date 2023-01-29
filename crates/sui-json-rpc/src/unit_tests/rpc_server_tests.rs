@@ -132,12 +132,14 @@ async fn test_tbls_sign_randomness_object() -> Result<(), anyhow::Error> {
         )
         .await?;
 
-    let SuiExecuteTransactionResponse::EffectsCert { effects, .. } = tx_response;
+    let SuiExecuteTransactionResponse::EffectsCert {
+        effects, events, ..
+    } = tx_response;
+
     assert_eq!(SuiExecutionStatus::Success, effects.effects.status);
 
-    let package_id = effects
-        .effects
-        .events
+    let package_id = events
+        .data
         .iter()
         .find_map(|e| {
             if let SuiEvent::Publish { package_id, .. } = e {
@@ -176,12 +178,13 @@ async fn test_tbls_sign_randomness_object() -> Result<(), anyhow::Error> {
         )
         .await?;
 
-    let SuiExecuteTransactionResponse::EffectsCert { effects, .. } = tx_response;
+    let SuiExecuteTransactionResponse::EffectsCert {
+        effects, events, ..
+    } = tx_response;
     assert_eq!(SuiExecutionStatus::Success, effects.effects.status);
 
-    let randomness_object_id = effects
-        .effects
-        .events
+    let randomness_object_id = events
+        .data
         .iter()
         .find_map(|e| {
             if let SuiEvent::NewObject { object_id, .. } = e {
@@ -428,11 +431,10 @@ async fn test_get_metadata() -> Result<(), anyhow::Error> {
         )
         .await?;
 
-    let SuiExecuteTransactionResponse::EffectsCert { effects, .. } = tx_response;
+    let SuiExecuteTransactionResponse::EffectsCert { events, .. } = tx_response;
 
-    let package_id = effects
-        .effects
-        .events
+    let package_id = events
+        .data
         .iter()
         .find_map(|e| {
             if let SuiEvent::Publish { package_id, .. } = e {
@@ -487,11 +489,10 @@ async fn test_get_total_supply() -> Result<(), anyhow::Error> {
         )
         .await?;
 
-    let SuiExecuteTransactionResponse::EffectsCert { effects, .. } = tx_response;
+    let SuiExecuteTransactionResponse::EffectsCert { events, .. } = tx_response;
 
-    let package_id = effects
-        .effects
-        .events
+    let package_id = events
+        .data
         .iter()
         .find_map(|e| {
             if let SuiEvent::Publish { package_id, .. } = e {
@@ -508,9 +509,8 @@ async fn test_get_total_supply() -> Result<(), anyhow::Error> {
 
     assert_eq!(0, result.value);
 
-    let treasury_cap = effects
-        .effects
-        .events
+    let treasury_cap = events
+        .data
         .iter()
         .find_map(|e| {
             if let SuiEvent::NewObject {
@@ -751,12 +751,9 @@ async fn test_get_fullnode_transaction() -> Result<(), anyhow::Error> {
     for tx_digest in tx.data {
         let response: SuiTransactionResponse =
             client.read_api().get_transaction(tx_digest).await.unwrap();
-        assert!(tx_responses.iter().any(|effects| effects
-            .effects
-            .as_ref()
-            .unwrap()
-            .transaction_digest
-            == response.effects.transaction_digest))
+        assert!(tx_responses.iter().any(
+            |effects| effects.effects.transaction_digest == response.effects.transaction_digest
+        ))
     }
 
     Ok(())

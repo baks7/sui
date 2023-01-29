@@ -23,7 +23,9 @@ use sui_types::id::UID;
 use sui_types::messages::ExecutionFailureStatus;
 #[cfg(test)]
 use sui_types::messages::InputObjects;
-use sui_types::messages::{GenesisTransaction, ObjectArg, Pay, PayAllSui, PaySui, TransactionKind};
+use sui_types::messages::{
+    GenesisTransaction, ObjectArg, Pay, PayAllSui, PaySui, TransactionEvents, TransactionKind,
+};
 use sui_types::object::{Data, MoveObject, Owner};
 use sui_types::storage::SingleTxContext;
 use sui_types::storage::{ChildObjectResolver, DeleteKind, ParentSync, WriteKind};
@@ -68,6 +70,7 @@ pub fn execute_transaction_to_effects<
 ) -> (
     InnerTemporaryStore,
     TransactionEffects,
+    TransactionEvents,
     Result<Mode::ExecutionResults, ExecutionError>,
 ) {
     let mut tx_ctx = TxContext::new(&transaction_signer, &transaction_digest, epoch);
@@ -100,7 +103,7 @@ pub fn execute_transaction_to_effects<
     // Remove from dependencies the generic hash
     transaction_dependencies.remove(&TransactionDigest::genesis());
 
-    let (inner, effects) = temporary_store.to_effects(
+    let (inner, effects, event) = temporary_store.to_effects(
         shared_object_refs,
         &transaction_digest,
         transaction_dependencies.into_iter().collect(),
@@ -108,7 +111,7 @@ pub fn execute_transaction_to_effects<
         status,
         gas_object_ref,
     );
-    (inner, effects, execution_result)
+    (inner, effects, event, execution_result)
 }
 
 fn charge_gas_for_object_read<S>(

@@ -112,7 +112,6 @@ impl TicTacToe {
         // We know `create_game` move function will create 1 object.
         let game_id = response
             .effects
-            .unwrap()
             .created
             .first()
             .unwrap()
@@ -207,7 +206,7 @@ impl TicTacToe {
             assert!(response.confirmed_local_execution);
 
             // Print any execution error.
-            let status = response.effects.unwrap().status;
+            let status = response.effects.status;
             if status.is_err() {
                 eprintln!("{:?}", status);
             }

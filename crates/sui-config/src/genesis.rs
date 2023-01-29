@@ -27,7 +27,7 @@ use sui_types::crypto::{
 use sui_types::gas::SuiGasStatus;
 use sui_types::in_memory_storage::InMemoryStorage;
 use sui_types::message_envelope::Message;
-use sui_types::messages::{CallArg, TransactionEffects};
+use sui_types::messages::{CallArg, TransactionEffects, TransactionEvents};
 use sui_types::messages::{CertifiedTransaction, Transaction};
 use sui_types::messages::{InputObjects, SignedTransaction};
 use sui_types::messages_checkpoint::{
@@ -53,6 +53,7 @@ pub struct Genesis {
     checkpoint_contents: CheckpointContents,
     transaction: CertifiedTransaction,
     effects: TransactionEffects,
+    events: TransactionEvents,
     objects: Vec<Object>,
     validator_set: Vec<ValidatorInfo>,
 }
@@ -92,6 +93,9 @@ impl Genesis {
 
     pub fn effects(&self) -> &TransactionEffects {
         &self.effects
+    }
+    pub fn events(&self) -> &TransactionEvents {
+        &self.events
     }
 
     pub fn checkpoint(&self) -> VerifiedCheckpoint {
@@ -213,11 +217,12 @@ impl<'de> Deserialize<'de> for Genesis {
         use serde::de::Error;
 
         #[derive(Deserialize)]
-        struct RawGeneis {
+        struct RawGenesis {
             checkpoint: CertifiedCheckpointSummary,
             checkpoint_contents: CheckpointContents,
             transaction: CertifiedTransaction,
             effects: TransactionEffects,
+            events: TransactionEvents,
             objects: Vec<Object>,
             validator_set: Vec<ValidatorInfo>,
         }
@@ -230,11 +235,12 @@ impl<'de> Deserialize<'de> for Genesis {
             data
         };
 
-        let RawGeneis {
+        let RawGenesis {
             checkpoint,
             checkpoint_contents,
             transaction,
             effects,
+            events,
             objects,
             validator_set,
         } = bcs::from_bytes(&bytes).map_err(|e| Error::custom(e.to_string()))?;
@@ -244,6 +250,7 @@ impl<'de> Deserialize<'de> for Genesis {
             checkpoint_contents,
             transaction,
             effects,
+            events,
             objects,
             validator_set,
         })
@@ -294,6 +301,7 @@ pub struct Builder {
         CheckpointContents,
         Transaction,
         TransactionEffects,
+        TransactionEvents,
         Vec<Object>,
     )>,
 }
@@ -348,7 +356,7 @@ impl Builder {
     }
 
     pub fn add_validator_signature(mut self, keypair: &AuthorityKeyPair) -> Self {
-        let (checkpoint, _checkpoint_contents, transaction, _effects, _objects) =
+        let (checkpoint, _checkpoint_contents, transaction, _effects, _events, _objects) =
             self.build_unsigned_genesis_checkpoint();
 
         let name = keypair.public().into();
@@ -383,6 +391,7 @@ impl Builder {
         CheckpointContents,
         Transaction,
         TransactionEffects,
+        TransactionEvents,
         Vec<Object>,
     )> {
         self.built_genesis.clone()
@@ -395,6 +404,7 @@ impl Builder {
         CheckpointContents,
         Transaction,
         TransactionEffects,
+        TransactionEvents,
         Vec<Object>,
     ) {
         if let Some(built_genesis) = &self.built_genesis {
@@ -438,7 +448,7 @@ impl Builder {
     }
 
     pub fn build(mut self) -> Genesis {
-        let (checkpoint, checkpoint_contents, transaction, effects, objects) =
+        let (checkpoint, checkpoint_contents, transaction, effects, events, objects) =
             self.build_unsigned_genesis_checkpoint();
 
         let committee = Self::committee(&objects);
@@ -485,6 +495,7 @@ impl Builder {
             checkpoint_contents,
             transaction,
             effects,
+            events,
             objects,
             validator_set: validators
                 .into_iter()
@@ -587,6 +598,7 @@ impl Builder {
                 CheckpointContents,
                 Transaction,
                 TransactionEffects,
+                TransactionEvents,
                 Vec<Object>,
             ) = bcs::from_bytes(&unsinged_genesis_bytes)?;
             Some(loaded_genesis)
@@ -685,6 +697,7 @@ fn build_unsigned_genesis_data(
     CheckpointContents,
     Transaction,
     TransactionEffects,
+    TransactionEvents,
     Vec<Object>,
 ) {
     let mut genesis_ctx = sui_adapter::genesis::get_genesis_context();
@@ -703,7 +716,8 @@ fn build_unsigned_genesis_data(
         parameters.timestamp_ms,
     );
 
-    let (genesis_transaction, genesis_effects, objects) = create_genesis_transaction(objects);
+    let (genesis_transaction, genesis_effects, genesis_events, objects) =
+        create_genesis_transaction(objects);
     let (checkpoint, checkpoint_contents) =
         create_genesis_checkpoint(parameters, &genesis_transaction, &genesis_effects);
 
@@ -712,6 +726,7 @@ fn build_unsigned_genesis_data(
         checkpoint_contents,
         genesis_transaction,
         genesis_effects,
+        genesis_events,
         objects,
     )
 }
@@ -742,7 +757,12 @@ fn create_genesis_checkpoint(
 
 fn create_genesis_transaction(
     objects: Vec<Object>,
-) -> (Transaction, TransactionEffects, Vec<Object>) {
+) -> (
+    Transaction,
+    TransactionEffects,
+    TransactionEvents,
+    Vec<Object>,
+) {
     let genesis_transaction = {
         let genesis_objects = objects
             .into_iter()
@@ -770,7 +790,7 @@ fn create_genesis_transaction(
     };
 
     // execute txn to effects
-    let (effects, objects) = {
+    let (effects, events, objects) = {
         let mut store = sui_types::in_memory_storage::InMemoryStorage::new(Vec::new());
         let temporary_store = TemporaryStore::new(
             &mut store,
@@ -790,7 +810,7 @@ fn create_genesis_transaction(
         let transaction_data = genesis_transaction.data().intent_message.value.clone();
         let signer = transaction_data.signer();
         let gas = transaction_data.gas();
-        let (inner_temp_store, effects, _execution_error) =
+        let (inner_temp_store, effects, events, _execution_error) =
             sui_adapter::execution_engine::execute_transaction_to_effects::<
                 execution_mode::Normal,
                 _,
@@ -819,10 +839,10 @@ fn create_genesis_transaction(
                 o
             })
             .collect();
-        (effects, objects)
+        (effects, events, objects)
     };
 
-    (genesis_transaction, effects, objects)
+    (genesis_transaction, effects, events, objects)
 }
 
 fn create_genesis_objects(
@@ -1119,7 +1139,7 @@ mod test {
         let transaction_data = genesis_transaction.data().intent_message.value.clone();
         let signer = transaction_data.signer();
         let gas = transaction_data.gas();
-        let (_inner_temp_store, effects, _execution_error) =
+        let (_inner_temp_store, effects, _events, _execution_error) =
             sui_adapter::execution_engine::execute_transaction_to_effects::<
                 execution_mode::Normal,
                 _,

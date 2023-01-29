@@ -51,6 +51,7 @@ impl Default for TransactionStreamer {
 mod tests {
     use super::*;
     use futures::StreamExt;
+    use sui_types::messages::TransactionEvents;
     use test_utils::messages::{make_tx_certs_and_signed_effects, test_shared_object_transactions};
     use tokio::time::{timeout, Duration};
 
@@ -64,11 +65,15 @@ mod tests {
         let tx_digest = *tx_cert.digest();
         let signed_effects = signed_effects.swap_remove(0);
         let result = streamer
-            .enqueue((tx_cert.into(), signed_effects.clone()))
+            .enqueue((
+                tx_cert.into(),
+                signed_effects.clone(),
+                TransactionEvents { data: vec![] },
+            ))
             .await;
 
         assert!(result);
-        if let Some((cert, effects)) = stream.next().await {
+        if let Some((cert, effects, _events)) = stream.next().await {
             assert_eq!(cert.digest(), &tx_digest);
             assert_eq!(effects, signed_effects);
         } else {

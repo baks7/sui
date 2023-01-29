@@ -274,7 +274,7 @@ async fn test_full_node_indexes() -> Result<(), anyhow::Error> {
     // query all events
     let all_events = node
         .state()
-        .get_events(
+        .query_events(
             EventQuery::TimeRange {
                 start_time: ts.unwrap() - HOUR_MS,
                 end_time: ts.unwrap() + HOUR_MS,
@@ -303,7 +303,7 @@ async fn test_full_node_indexes() -> Result<(), anyhow::Error> {
     // query by sender
     let events_by_sender = node
         .state()
-        .get_events(EventQuery::Sender(sender), None, 10, false)
+        .query_events(EventQuery::Sender(sender), None, 10, false)
         .await?;
     assert_eq!(events_by_sender[0].1.tx_digest, digest);
     let events_by_sender = events_by_sender
@@ -323,7 +323,7 @@ async fn test_full_node_indexes() -> Result<(), anyhow::Error> {
     // query by tx digest
     let events_by_tx = node
         .state()
-        .get_events(EventQuery::Transaction(digest), None, 10, false)
+        .query_events(EventQuery::Transaction(digest), None, 10, false)
         .await?;
     assert_eq!(events_by_tx[0].1.tx_digest, digest);
     let events_by_tx = events_by_tx
@@ -343,7 +343,7 @@ async fn test_full_node_indexes() -> Result<(), anyhow::Error> {
     // query by recipient
     let events_by_recipient = node
         .state()
-        .get_events(
+        .query_events(
             EventQuery::Recipient(Owner::AddressOwner(receiver)),
             None,
             100,
@@ -356,7 +356,7 @@ async fn test_full_node_indexes() -> Result<(), anyhow::Error> {
     // query by object
     let mut events_by_object = node
         .state()
-        .get_events(EventQuery::Object(transferred_object), None, 100, false)
+        .query_events(EventQuery::Object(transferred_object), None, 100, false)
         .await?;
     let events_by_object = events_by_object.split_off(events_by_object.len() - 2);
     assert_eq!(events_by_object[0].1.tx_digest, digest);
@@ -374,7 +374,7 @@ async fn test_full_node_indexes() -> Result<(), anyhow::Error> {
     // Query by module ID
     let events_by_module = node
         .state()
-        .get_events(
+        .query_events(
             EventQuery::MoveModule {
                 package: SUI_FRAMEWORK_OBJECT_ID,
                 module: "transfer_object".to_string(),
@@ -663,7 +663,7 @@ async fn test_full_node_sub_and_query_move_event_ok() -> Result<(), anyhow::Erro
     // Query by move event struct name
     let events_by_sender = node
         .state()
-        .get_events(EventQuery::MoveEvent(struct_tag_str), None, 10, false)
+        .query_events(EventQuery::MoveEvent(struct_tag_str), None, 10, false)
         .await?;
     assert_eq!(events_by_sender.len(), 1);
     assert_eq!(events_by_sender[0].1.event, expected_event);
@@ -1038,6 +1038,7 @@ async fn test_execute_tx_with_serialized_signature() -> Result<(), anyhow::Error
         let SuiExecuteTransactionResponse::EffectsCert {
             certificate,
             effects: _,
+            events: _,
             confirmed_local_execution,
         } = response;
         assert_eq!(&certificate.transaction_digest, tx_digest);
@@ -1078,6 +1079,7 @@ async fn test_full_node_transaction_orchestrator_rpc_ok() -> Result<(), anyhow::
     let SuiExecuteTransactionResponse::EffectsCert {
         certificate,
         effects: _,
+        events: _,
         confirmed_local_execution,
     } = response;
     assert_eq!(&certificate.transaction_digest, tx_digest);
@@ -1103,6 +1105,7 @@ async fn test_full_node_transaction_orchestrator_rpc_ok() -> Result<(), anyhow::
     let SuiExecuteTransactionResponse::EffectsCert {
         certificate,
         effects: _,
+        events: _,
         confirmed_local_execution,
     } = response;
     assert_eq!(&certificate.transaction_digest, tx_digest);

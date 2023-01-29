@@ -481,7 +481,6 @@ impl<'a> SuiTestAdapter<'a> {
             inner,
             TransactionEffects {
                 status,
-                events,
                 created,
                 mutated,
                 unwrapped,
@@ -492,6 +491,7 @@ impl<'a> SuiTestAdapter<'a> {
                 gas_object: _,
                 ..
             },
+            events,
             execution_error,
         ) = execution_engine::execute_transaction_to_effects::<execution_mode::Normal, _>(
             shared_object_refs,
@@ -549,7 +549,7 @@ impl<'a> SuiTestAdapter<'a> {
                 created: created_ids,
                 written: written_ids,
                 deleted: deleted_ids,
-                events,
+                events: events.data,
             }),
             ExecutionStatus::Failure { error, .. } => {
                 Err(anyhow::anyhow!(self.stabilize_str(format!(

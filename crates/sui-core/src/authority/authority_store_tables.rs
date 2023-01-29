@@ -69,6 +69,8 @@ pub struct AuthorityPerpetualTables {
     #[default_options_override_fn = "effects_table_default_config"]
     pub(crate) executed_effects: DBMap<TransactionDigest, TrustedSignedTransactionEffects>,
 
+    pub(crate) events: DBMap<TransactionEventsDigest, TransactionEvents>,
+
     pub(crate) effects: DBMap<TransactionEffectsDigest, TransactionEffects>,
     pub(crate) synced_transactions: DBMap<TransactionDigest, TrustedCertificate>,
 

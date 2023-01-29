@@ -15,7 +15,7 @@ use std::time::Duration;
 use sui_config::genesis::Genesis;
 use sui_config::ValidatorInfo;
 use sui_framework_build::compiled_package::{BuildConfig, CompiledPackage};
-use sui_types::base_types::ObjectID;
+use sui_types::base_types::{ObjectID, TransactionEventsDigest};
 use sui_types::crypto::AuthorityKeyPair;
 use sui_types::crypto::{
     generate_proof_of_possession, get_key_pair, AccountKeyPair, AuthorityPublicKeyBytes,
@@ -139,7 +139,7 @@ pub fn dummy_transaction_effects(tx: &Transaction) -> TransactionEffects {
             random_object_ref(),
             Owner::AddressOwner(tx.data().intent_message.value.signer()),
         ),
-        events: Vec::new(),
+        events_digest: TransactionEventsDigest::random(),
         dependencies: Vec::new(),
     }
 }

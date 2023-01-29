@@ -405,12 +405,8 @@ impl SimpleFaucet {
                     e
                 )
             })?;
-        let tx_cert = response
-            .tx_cert
-            .ok_or_else(|| anyhow!("Expect Some(tx_cert)"))?;
-        let effects = response
-            .effects
-            .ok_or_else(|| anyhow!("Expect Some(effects)"))?;
+        let tx_cert = response.tx_cert;
+        let effects = response.effects;
         if matches!(effects.status, SuiExecutionStatus::Failure { .. }) {
             return Err(anyhow!("Error transferring object: {:#?}", effects.status));
         }
@@ -418,8 +414,8 @@ impl SimpleFaucet {
         Ok(SuiTransactionResponse {
             certificate: tx_cert,
             effects,
+            events: response.events,
             timestamp_ms: None,
-            parsed_data: None,
         })
     }
 

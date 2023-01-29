@@ -118,10 +118,13 @@ impl CoinReadApi {
         object_struct_tag: StructTag,
     ) -> Result<Object, Error> {
         let publish_txn_digest = self.get_object(package_id).await?.previous_transaction;
-        let (_, effects) = self.state.get_transaction(publish_txn_digest).await?;
+        let (_, effect) = self.state.get_transaction(publish_txn_digest).await?;
+        let events = self
+            .state
+            .get_transaction_events(effect.events_digest)
+            .await?;
 
-        let object_id = effects
-            .events
+        let object_id = events.data
             .into_iter()
             .find_map(|e| {
                 if let Event::NewObject { object_type, .. } = &e {

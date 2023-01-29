@@ -20,7 +20,8 @@ use sui_json_rpc_types::{
 };
 use sui_types::balance::Supply;
 use sui_types::base_types::{
-    ObjectID, SequenceNumber, SuiAddress, TransactionDigest, TxSequenceNumber,
+    ObjectID, SequenceNumber, SuiAddress, TransactionDigest,
+    TxSequenceNumber,
 };
 use sui_types::committee::EpochId;
 use sui_types::error::TRANSACTION_NOT_FOUND_MSG_PREFIX;
@@ -481,13 +482,11 @@ impl QuorumDriver {
         let (tx_bytes, signature) = tx.to_tx_bytes_and_signature();
         let request_type =
             request_type.unwrap_or(ExecuteTransactionRequestType::WaitForLocalExecution);
-        let resp = TransactionExecutionApiClient::execute_transaction_serialized_sig(
-            &self.api.http,
-            tx_bytes,
-            signature,
-            request_type.clone(),
-        )
-        .await?;
+        let resp: SuiExecuteTransactionResponse = self
+            .api
+            .http
+            .execute_transaction(tx_bytes, signature, request_type.clone())
+            .await?;
 
         Ok(match (request_type, resp) {
             (
@@ -495,21 +494,23 @@ impl QuorumDriver {
                 SuiExecuteTransactionResponse::EffectsCert {
                     certificate,
                     effects,
+                    events,
                     confirmed_local_execution,
                 },
             ) => TransactionExecutionResult {
                 tx_digest: certificate.transaction_digest,
-                tx_cert: Some(certificate),
-                effects: Some(effects.effects),
+                tx_cert: certificate,
+                effects: effects.effects,
+                events,
                 confirmed_local_execution,
                 timestamp_ms: None,
-                parsed_data: None,
             },
             (
                 ExecuteTransactionRequestType::WaitForLocalExecution,
                 SuiExecuteTransactionResponse::EffectsCert {
                     certificate,
                     effects,
+                    events,
                     confirmed_local_execution,
                 },
             ) => {
@@ -519,11 +520,11 @@ impl QuorumDriver {
                 }
                 TransactionExecutionResult {
                     tx_digest: certificate.transaction_digest,
-                    tx_cert: Some(certificate),
-                    effects: Some(effects.effects),
+                    tx_cert: certificate,
+                    effects: effects.effects,
+                    events,
                     confirmed_local_execution,
                     timestamp_ms: None,
-                    parsed_data: None,
                 }
             }
         })

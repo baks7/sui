@@ -59,7 +59,7 @@ impl TestCaseImpl for CallContractTest {
         let data = ctx
             .build_transaction_remotely("sui_moveCall", params)
             .await?;
-        let (_, effects) = ctx.sign_and_execute(data, "call contract").await;
+        let (_, effects, events) = ctx.sign_and_execute(data, "call contract").await;
 
         // Retrieve created nft
         let nft_id = effects
@@ -70,7 +70,7 @@ impl TestCaseImpl for CallContractTest {
             .object_id;
 
         // Examine effects
-        let events = &effects.events;
+        let events = &events.data;
         assert_eq!(
             events.len(),
             3,

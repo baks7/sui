@@ -860,7 +860,7 @@ impl AuthorityState {
         // non-transient (transaction input is invalid, move vm errors). However, all errors from
         // this function occur before we have written anything to the db, so we commit the tx
         // guard and rely on the client to retry the tx (if it was transient).
-        let (inner_temporary_store, signed_effects) =
+        let (inner_temporary_store, signed_effects, _) =
             match self.prepare_certificate(certificate, epoch_store).await {
                 Err(e) => {
                     debug!(name = ?self.name, ?digest, "Error preparing transaction: {e}");
@@ -981,7 +981,11 @@ impl AuthorityState {
         &self,
         certificate: &VerifiedCertificate,
         epoch_store: &Arc<AuthorityPerEpochStore>,
-    ) -> SuiResult<(InnerTemporaryStore, VerifiedSignedTransactionEffects)> {
+    ) -> SuiResult<(
+        InnerTemporaryStore,
+        VerifiedSignedTransactionEffects,
+        TransactionEvents,
+    )> {
         let _metrics_guard = self.metrics.prepare_certificate_latency.start_timer();
         let (gas_status, input_objects) = transaction_input_checker::check_certificate_input(
             &self.database,
@@ -1025,7 +1029,7 @@ impl AuthorityState {
         let transaction_data = certificate.data().intent_message.value.clone();
         let signer = transaction_data.signer();
         let gas = transaction_data.gas();
-        let (inner_temp_store, effects, _execution_error) =
+        let (inner_temp_store, effects, events, _execution_error) =
             execution_engine::execute_transaction_to_effects::<execution_mode::Normal, _>(
                 shared_object_refs,
                 temporary_store,
@@ -1043,7 +1047,7 @@ impl AuthorityState {
         let signed_effects = VerifiedSignedTransactionEffects::new_unchecked(
             SignedTransactionEffects::new(epoch_store.epoch(), effects, &*self.secret, self.name),
         );
-        Ok((inner_temp_store, signed_effects))
+        Ok((inner_temp_store, signed_effects, events))
     }
 
     /// Notifies TransactionManager about an executed certificate.
@@ -1075,7 +1079,7 @@ impl AuthorityState {
             TemporaryStore::new(self.database.clone(), input_objects, transaction_digest);
         let signer = transaction.signer();
         let gas = transaction.gas();
-        let (_inner_temp_store, effects, _execution_error) =
+        let (_inner_temp_store, effects, _events, _execution_error) =
             execution_engine::execute_transaction_to_effects::<execution_mode::Normal, _>(
                 shared_object_refs,
                 temporary_store,
@@ -1089,7 +1093,7 @@ impl AuthorityState {
                 gas_status,
                 self.epoch(),
             );
-        SuiTransactionEffects::try_from(effects, self.module_cache.as_ref())
+        Ok(effects.into())
     }
 
     /// The object ID for gas can be any object ID, even for an uncreated object
@@ -1139,7 +1143,7 @@ impl AuthorityState {
             STORAGE_GAS_PRICE.into(),
         );
         gas_status.charge_min_tx_gas()?;
-        let (_inner_temp_store, effects, execution_result) =
+        let (_inner_temp_store, effects, _events, execution_result) =
             execution_engine::execute_transaction_to_effects::<execution_mode::DevInspect, _>(
                 shared_object_refs,
                 temporary_store,
@@ -1153,7 +1157,7 @@ impl AuthorityState {
                 gas_status,
                 epoch,
             );
-        DevInspectResults::new(effects, execution_result, self.module_cache.as_ref())
+        DevInspectResults::new(effects, execution_result)
     }
 
     pub fn is_tx_already_executed(&self, digest: &TransactionDigest) -> SuiResult<bool> {
@@ -1383,6 +1387,8 @@ impl AuthorityState {
             }
         };
 
+        let events = self.database.get_events(&effects.events_digest)?;
+
         let timestamp_ms = Self::unixtime_now_ms();
 
         // Index tx
@@ -1395,21 +1401,21 @@ impl AuthorityState {
             // Emit events
             if let (Some(event_handler), Ok(seq)) = (&self.event_handler, res) {
                 event_handler
-                    .process_events(effects.data(), timestamp_ms, seq)
+                    .process_events(effects.data(), &events,timestamp_ms, seq)
                     .await
                     .tap_ok(|_| self.metrics.post_processing_total_tx_had_event_processed.inc())
                     .tap_err(|e| warn!(tx_digest=?digest, "Post processing - Couldn't process events for tx: {}", e))?;
 
                 self.metrics
                     .post_processing_total_events_emitted
-                    .inc_by(effects.data().events.len() as u64);
+                    .inc_by(events.data.len() as u64);
             }
         };
 
         // Stream transaction
         if let Some(transaction_streamer) = &self.transaction_streamer {
             transaction_streamer
-                .enqueue((cert.into(), effects.clone()))
+                .enqueue((cert.into(), effects, events))
                 .await;
             self.metrics
                 .post_processing_total_tx_added_to_streamer
@@ -2126,6 +2132,13 @@ impl AuthorityState {
         }
     }
 
+    pub async fn get_transaction_events(
+        &self,
+        digest: TransactionEventsDigest,
+    ) -> Result<TransactionEvents, anyhow::Error> {
+        Ok(self.database.get_events(&digest)?)
+    }
+
     fn get_indexes(&self) -> SuiResult<Arc<IndexStore>> {
         match &self.indexes {
             Some(i) => Ok(i.clone()),
@@ -2232,7 +2245,7 @@ impl AuthorityState {
             .map(|handler| handler.event_store.clone())
     }
 
-    pub async fn get_events(
+    pub async fn query_events(
         &self,
         query: EventQuery,
         cursor: Option<EventID>,

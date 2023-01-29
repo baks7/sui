@@ -20,8 +20,7 @@ use sui_json_rpc_types::{
 };
 use sui_types::balance::Supply;
 use sui_types::base_types::{
-    ObjectID, SequenceNumber, SuiAddress, TransactionDigest,
-    TxSequenceNumber,
+    ObjectID, SequenceNumber, SuiAddress, TransactionDigest, TxSequenceNumber,
 };
 use sui_types::committee::EpochId;
 use sui_types::error::TRANSACTION_NOT_FOUND_MSG_PREFIX;

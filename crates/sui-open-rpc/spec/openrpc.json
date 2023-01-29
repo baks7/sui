@@ -372,7 +372,10 @@
                     "digest": "si6ifTyS5M4iVqxkXLq9w2zxufLshIGibKfYEWlVl5Q="
                   }
                 },
-                "events": [
+                "eventsDigest": "nK+LLaVFzA5H7XDISxBT8AYSkpkr3u6gVFEIcx6KRTo="
+              },
+              "events": {
+                "data": [
                   {
                     "transferObject": {
                       "packageId": "0x0000000000000000000000000000000000000002",
@@ -388,8 +391,7 @@
                   }
                 ]
               },
-              "timestamp_ms": null,
-              "parsed_data": null
+              "timestamp_ms": null
             }
           }
         }
@@ -1666,7 +1668,10 @@
                     "digest": "7uEpQUTuxHzzk4i7aA9pt0JrxSkpaS/cfS/zdMP4cPM="
                   }
                 },
-                "events": [
+                "eventsDigest": "t8ryH150xChF6PxgXcjNHP76Ch2lvcwkzq5rjr7i+/Q="
+              },
+              "events": {
+                "data": [
                   {
                     "transferObject": {
                       "packageId": "0x0000000000000000000000000000000000000002",
@@ -1682,8 +1687,7 @@
                   }
                 ]
               },
-              "timestamp_ms": null,
-              "parsed_data": null
+              "timestamp_ms": null
             }
           }
         }
@@ -5308,7 +5312,8 @@
                 "required": [
                   "certificate",
                   "confirmed_local_execution",
-                  "effects"
+                  "effects",
+                  "events"
                 ],
                 "properties": {
                   "certificate": {
@@ -5319,6 +5324,9 @@
                   },
                   "effects": {
                     "$ref": "#/components/schemas/CertifiedTransactionEffects"
+                  },
+                  "events": {
+                    "$ref": "#/components/schemas/TransactionEffects"
                   }
                 }
               }
@@ -5678,137 +5686,6 @@
           "Friend"
         ]
       },
-      "SuiParsedMergeCoinResponse": {
-        "type": "object",
-        "required": [
-          "updatedCoin",
-          "updatedGas"
-        ],
-        "properties": {
-          "updatedCoin": {
-            "description": "The updated original coin object after merge",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Object"
-              }
-            ]
-          },
-          "updatedGas": {
-            "description": "The updated gas payment object after deducting payment",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Object"
-              }
-            ]
-          }
-        }
-      },
-      "SuiParsedPublishResponse": {
-        "type": "object",
-        "required": [
-          "createdObjects",
-          "package",
-          "updatedGas"
-        ],
-        "properties": {
-          "createdObjects": {
-            "description": "List of Move objects created as part of running the module initializers in the package",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Object"
-            }
-          },
-          "package": {
-            "description": "The newly published package object reference.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ObjectRef"
-              }
-            ]
-          },
-          "updatedGas": {
-            "description": "The updated gas payment object after deducting payment",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Object"
-              }
-            ]
-          }
-        }
-      },
-      "SuiParsedSplitCoinResponse": {
-        "type": "object",
-        "required": [
-          "newCoins",
-          "updatedCoin",
-          "updatedGas"
-        ],
-        "properties": {
-          "newCoins": {
-            "description": "All the newly created coin objects generated from the split",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Object"
-            }
-          },
-          "updatedCoin": {
-            "description": "The updated original coin object after split",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Object"
-              }
-            ]
-          },
-          "updatedGas": {
-            "description": "The updated gas payment object after deducting payment",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Object"
-              }
-            ]
-          }
-        }
-      },
-      "SuiParsedTransactionResponse": {
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "Publish"
-            ],
-            "properties": {
-              "Publish": {
-                "$ref": "#/components/schemas/SuiParsedPublishResponse"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "MergeCoin"
-            ],
-            "properties": {
-              "MergeCoin": {
-                "$ref": "#/components/schemas/SuiParsedMergeCoinResponse"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": [
-              "SplitCoin"
-            ],
-            "properties": {
-              "SplitCoin": {
-                "$ref": "#/components/schemas/SuiParsedSplitCoinResponse"
-              }
-            },
-            "additionalProperties": false
-          }
-        ]
-      },
       "SuiSystemState": {
         "description": "Rust version of the Move sui::sui_system::SuiSystemState type",
         "type": "object",
@@ -5938,7 +5815,8 @@
         "type": "object",
         "required": [
           "certificate",
-          "effects"
+          "effects",
+          "events"
         ],
         "properties": {
           "certificate": {
@@ -5947,15 +5825,8 @@
           "effects": {
             "$ref": "#/components/schemas/TransactionEffects"
           },
-          "parsed_data": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SuiParsedTransactionResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "events": {
+            "$ref": "#/components/schemas/TransactionEffects"
           },
           "timestamp_ms": {
             "type": [
@@ -6109,6 +5980,7 @@
         "description": "The response from processing a transaction or a certified transaction",
         "type": "object",
         "required": [
+          "eventsDigest",
           "gasObject",
           "gasUsed",
           "status",
@@ -6134,12 +6006,13 @@
               "$ref": "#/components/schemas/TransactionDigest"
             }
           },
-          "events": {
-            "description": "The events emitted during execution. Note that only successful transactions emit events",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Event"
-            }
+          "eventsDigest": {
+            "description": "The events emitted during execution.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TransactionEventsDigest"
+              }
+            ]
           },
           "gasObject": {
             "$ref": "#/components/schemas/OwnedObjectRef"
@@ -6180,6 +6053,9 @@
         }
       },
       "TransactionEffectsDigest": {
+        "$ref": "#/components/schemas/Base64"
+      },
+      "TransactionEventsDigest": {
         "$ref": "#/components/schemas/Base64"
       },
       "TransactionKind": {

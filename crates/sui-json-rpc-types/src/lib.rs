@@ -356,6 +356,7 @@ pub struct SuiTransactionAuthSignersResponse {
     pub signers: Vec<AuthorityName>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub enum SuiTBlsSignObjectCommitmentType {
     /// Check that the object is committed by the consensus.
@@ -1964,7 +1965,6 @@ pub struct DevInspectResults {
     /// Note however, that not all dev-inspect transactions are actually usable as transactions so
     /// it might not be possible actually generate these effects from a normal transaction.
     pub effects: SuiTransactionEffects,
-    //pub events: SuiTransactionEvents,
     /// Execution results (including return values) from executing the transactions
     /// Currently contains only return values from Move calls
     pub results: Result<Vec<(usize, SuiExecutionResult)>, String>,

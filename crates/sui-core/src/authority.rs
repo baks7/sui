@@ -136,8 +136,15 @@ pub(crate) const MAX_TX_RECOVERY_RETRY: u32 = 3;
 // is above the threshold.
 pub(crate) const MAX_PER_OBJECT_EXECUTION_QUEUE_LENGTH: usize = 1000;
 
-type CertTxGuard<'a> =
-    DBTxGuard<'a, TrustedCertificate, (InnerTemporaryStore, TrustedSignedTransactionEffects)>;
+type CertTxGuard<'a> = DBTxGuard<
+    'a,
+    TrustedCertificate,
+    (
+        InnerTemporaryStore,
+        TrustedSignedTransactionEffects,
+        TransactionEvents,
+    ),
+>;
 
 pub type ReconfigConsensusMessage = (
     AuthorityKeyPair,
@@ -840,7 +847,7 @@ impl AuthorityState {
 
         // first check to see if we have already executed and committed the tx
         // to the WAL
-        if let Some((inner_temporary_storage, signed_effects)) =
+        if let Some((inner_temporary_storage, signed_effects, events)) =
             epoch_store.wal().get_execution_output(&digest)?
         {
             let signed_effects = signed_effects.into();
@@ -848,6 +855,7 @@ impl AuthorityState {
                 certificate,
                 inner_temporary_storage,
                 &signed_effects,
+                &events,
                 tx_guard,
                 execution_guard,
                 epoch_store,
@@ -860,7 +868,7 @@ impl AuthorityState {
         // non-transient (transaction input is invalid, move vm errors). However, all errors from
         // this function occur before we have written anything to the db, so we commit the tx
         // guard and rely on the client to retry the tx (if it was transient).
-        let (inner_temporary_store, signed_effects, _) =
+        let (inner_temporary_store, signed_effects, events) =
             match self.prepare_certificate(certificate, epoch_store).await {
                 Err(e) => {
                     debug!(name = ?self.name, ?digest, "Error preparing transaction: {e}");
@@ -881,6 +889,7 @@ impl AuthorityState {
             (
                 inner_temporary_store.clone(),
                 signed_effects.clone().serializable(),
+                events.clone(),
             ),
         )?;
 
@@ -893,6 +902,7 @@ impl AuthorityState {
             certificate,
             inner_temporary_store,
             &signed_effects,
+            &events,
             tx_guard,
             execution_guard,
             epoch_store,
@@ -906,6 +916,7 @@ impl AuthorityState {
         certificate: &VerifiedCertificate,
         inner_temporary_store: InnerTemporaryStore,
         signed_effects: &VerifiedSignedTransactionEffects,
+        events: &TransactionEvents,
         tx_guard: CertTxGuard<'_>,
         _execution_guard: ExecutionLockReadGuard<'_>,
         epoch_store: &Arc<AuthorityPerEpochStore>,
@@ -922,7 +933,7 @@ impl AuthorityState {
             .map(|(_, ((id, seq, _), _, _))| ObjectKey(*id, *seq))
             .collect();
 
-        self.commit_certificate(inner_temporary_store, certificate, signed_effects)
+        self.commit_certificate(inner_temporary_store, certificate, signed_effects, events)
             .await?;
 
         // Notifies transaction manager about available input objects. This allows the transaction
@@ -2468,6 +2479,7 @@ impl AuthorityState {
         inner_temporary_store: InnerTemporaryStore,
         certificate: &VerifiedCertificate,
         signed_effects: &VerifiedSignedTransactionEffects,
+        events: &TransactionEvents,
     ) -> SuiResult {
         let _metrics_guard = self.metrics.commit_certificate_latency.start_timer();
 
@@ -2477,6 +2489,7 @@ impl AuthorityState {
                 inner_temporary_store,
                 certificate,
                 signed_effects,
+                events,
                 effects_digest,
             )
             .await

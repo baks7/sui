@@ -23,7 +23,7 @@ use sui_types::crypto::{AuthoritySignInfo, Signature};
 use sui_types::error::{SuiError, SuiResult};
 use sui_types::messages::{
     CertifiedTransaction, ConsensusTransaction, ConsensusTransactionKey, ConsensusTransactionKind,
-    SenderSignedData, SharedInputObject, TransactionEffects, TrustedCertificate,
+    SenderSignedData, SharedInputObject, TransactionEffects, TransactionEvents, TrustedCertificate,
     TrustedSignedTransactionEffects, VerifiedCertificate, VerifiedSignedTransaction,
 };
 use tracing::{debug, info, trace, warn};
@@ -102,7 +102,14 @@ pub struct AuthorityPerEpochStore {
     /// A write-ahead/recovery log used to ensure we finish fully processing certs after errors or
     /// crashes.
     wal: Arc<
-        DBWriteAheadLog<TrustedCertificate, (InnerTemporaryStore, TrustedSignedTransactionEffects)>,
+        DBWriteAheadLog<
+            TrustedCertificate,
+            (
+                InnerTemporaryStore,
+                TrustedSignedTransactionEffects,
+                TransactionEvents,
+            ),
+        >,
     >,
 
     /// The moment when the current epoch started locally on this validator. Note that this
@@ -337,7 +344,14 @@ impl AuthorityPerEpochStore {
     pub fn wal(
         &self,
     ) -> &Arc<
-        DBWriteAheadLog<TrustedCertificate, (InnerTemporaryStore, TrustedSignedTransactionEffects)>,
+        DBWriteAheadLog<
+            TrustedCertificate,
+            (
+                InnerTemporaryStore,
+                TrustedSignedTransactionEffects,
+                TransactionEvents,
+            ),
+        >,
     > {
         &self.wal
     }

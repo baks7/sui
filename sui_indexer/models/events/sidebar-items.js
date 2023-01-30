@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["commit_events",""],["events_to_sui_events",""],["read_events",""],["read_last_event",""]],"struct":[["Event",""],["IndexerEventEnvelope",""],["NewEvent",""]]};

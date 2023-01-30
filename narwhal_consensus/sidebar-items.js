@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["DEFAULT_CHANNEL_SIZE","The default channel size used in the consensus and subscriber logic."],["NUM_SHUTDOWN_RECEIVERS","The number of shutdown receivers to create on startup. We need one per component loop."]],"mod":[["bullshark",""],["consensus",""],["dag",""],["metrics",""],["tusk",""]]};

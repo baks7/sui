@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["QuorumDriverError","Client facing errors regarding transaction submission via Quorum Driver. Every invariant needs detailed documents to instruct client handling."]],"type":[["QuorumDriverEffectsQueueResult",""],["QuorumDriverResult",""]]};

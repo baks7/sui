@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["PrimaryToPrimaryClient","The primary-to-primary interface"]]};

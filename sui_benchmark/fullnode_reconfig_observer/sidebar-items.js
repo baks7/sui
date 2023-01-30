@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["FullNodeReconfigObserver","A ReconfigObserver that polls FullNode periodically to get new epoch information. Caveat: it does not guarantee to insert every committee into committee store. This is fine in scenarios such as stress, but may not be suitable in some other cases."]]};

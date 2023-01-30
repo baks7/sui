@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["DummyReconfigObserver","A dummy ReconfigObserver for testing."],["OnsiteReconfigObserver","A ReconfigObserver that subscribes to a reconfig channel of new committee. This is used in TransactionOrchestrator."]],"trait":[["ReconfigObserver",""]]};

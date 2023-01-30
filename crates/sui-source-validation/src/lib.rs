@@ -1,9 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+use core::fmt;
 use futures::future;
 use move_binary_format::access::ModuleAccess;
 use move_binary_format::CompiledModule;
+use std::error::Error as StdError;
 use std::{collections::HashMap, fmt::Debug};
 use thiserror::Error;
 
@@ -56,6 +58,30 @@ pub enum SourceVerificationError {
     InvalidModuleFailure { name: String, message: String },
 }
 
+#[derive(Debug)]
+pub struct AggregateSourceVerificationError(Vec<SourceVerificationError>);
+
+impl From<SourceVerificationError> for AggregateSourceVerificationError {
+    fn from(error: SourceVerificationError) -> Self {
+        AggregateSourceVerificationError(vec![error])
+    }
+}
+
+impl fmt::Display for AggregateSourceVerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let AggregateSourceVerificationError(errors) = self;
+        for (i, error) in errors.iter().enumerate() {
+            if i != 0 {
+                write!(f, "\n\tNext error: ")?;
+            }
+            write!(f, "{}", error)?;
+        }
+        Ok(())
+    }
+}
+
+impl StdError for AggregateSourceVerificationError {}
+
 /// How to handle package source during bytecode verification.
 #[derive(PartialEq, Eq)]
 pub enum SourceMode {
@@ -94,7 +120,7 @@ impl<'a> BytecodeSourceVerifier<'a> {
         &self,
         compiled_package: &CompiledPackage,
         root_on_chain_address: AccountAddress,
-    ) -> Result<(), SourceVerificationError> {
+    ) -> Result<(), AggregateSourceVerificationError> {
         self.verify_package(
             compiled_package,
             /* verify_deps */ true,
@@ -109,7 +135,7 @@ impl<'a> BytecodeSourceVerifier<'a> {
         &self,
         compiled_package: &CompiledPackage,
         root_on_chain_address: AccountAddress,
-    ) -> Result<(), SourceVerificationError> {
+    ) -> Result<(), AggregateSourceVerificationError> {
         self.verify_package(
             compiled_package,
             /* verify_deps */ false,
@@ -123,7 +149,7 @@ impl<'a> BytecodeSourceVerifier<'a> {
     pub async fn verify_package_deps(
         &self,
         compiled_package: &CompiledPackage,
-    ) -> Result<(), SourceVerificationError> {
+    ) -> Result<(), AggregateSourceVerificationError> {
         self.verify_package(
             compiled_package,
             /* verify_deps */ true,
@@ -141,11 +167,13 @@ impl<'a> BytecodeSourceVerifier<'a> {
         compiled_package: &CompiledPackage,
         verify_deps: bool,
         source_mode: SourceMode,
-    ) -> Result<(), SourceVerificationError> {
+    ) -> Result<(), AggregateSourceVerificationError> {
         // On-chain address for matching root package cannot be zero
         if let SourceMode::VerifyAt(root_address) = &source_mode {
             if *root_address == AccountAddress::ZERO {
-                return Err(SourceVerificationError::ZeroOnChainAddresSpecifiedFailure);
+                return Err(AggregateSourceVerificationError(vec![
+                    SourceVerificationError::ZeroOnChainAddresSpecifiedFailure,
+                ]));
             }
         }
 
@@ -154,17 +182,19 @@ impl<'a> BytecodeSourceVerifier<'a> {
             .on_chain_bytes(local_modules.keys().map(|(addr, _)| *addr))
             .await?;
 
+        let mut errors = Vec::new();
         for ((address, module), (package, local_bytes)) in local_modules {
             let Some(on_chain_bytes) = on_chain_modules.remove(&(address, module)) else {
-                return Err(SourceVerificationError::OnChainDependencyNotFound {
+                errors.push(SourceVerificationError::OnChainDependencyNotFound {
                     package, module,
-                })
+                });
+		continue;
             };
 
             // compare local bytecode to on-chain bytecode to ensure integrity of our
             // dependencies
             if local_bytes != on_chain_bytes {
-                return Err(SourceVerificationError::ModuleBytecodeMismatch {
+                errors.push(SourceVerificationError::ModuleBytecodeMismatch {
                     address,
                     package,
                     module,
@@ -182,7 +212,11 @@ impl<'a> BytecodeSourceVerifier<'a> {
         }
 
         if let Some(((address, module), _)) = on_chain_modules.into_iter().next() {
-            return Err(SourceVerificationError::LocalDependencyNotFound { address, module });
+            errors.push(SourceVerificationError::LocalDependencyNotFound { address, module });
+        }
+
+        if !errors.is_empty() {
+            return Err(AggregateSourceVerificationError(errors));
         }
 
         Ok(())

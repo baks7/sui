@@ -1,5 +1,11 @@
 # @mysten/sui.js
 
+## 0.26.0
+
+### Minor Changes
+
+- 21781ba52: Secp256k1 signs 64-bytes signature [r, s] instead of [r, s, v] with recovery id
+
 ## 0.25.0
 
 ### Minor Changes
